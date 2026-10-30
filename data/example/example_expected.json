@@ -1,0 +1,13 @@
+{
+  "example_sample": {
+    "garment_type": "top",
+    "nearly_complete": false,
+    "missing": ["colors", "thickness", "stretch", "see_through", "care", "origin"],
+    "gaps": {
+      "measurements": ["shoulder", "sleeve"],
+      "model_info": ["weight"]
+    },
+    "vague_quotes": ["여유 있는 핏", "면 소재", "FREE", "가슴단면 55cm"],
+    "limitation_note": "Optional. Format example only: this file is not an answer key and is never scored."
+  }
+}
