@@ -26,9 +26,20 @@ def print_report(result):
 
 def main():
     parser = argparse.ArgumentParser(description="Check a product description for missing information.")
-    parser.add_argument("file", help="UTF-8 text file with one description")
+    parser.add_argument("file", nargs="?", help="UTF-8 text file with one description")
     parser.add_argument("--garment", default="top", help="garment type in data/checklists.json (default: top)")
+    parser.add_argument("--smoke", action="store_true", help="send one tool-call test request to OpenRouter")
     args = parser.parse_args()
+
+    if args.smoke:
+        from checker.llm import print_smoke_report, smoke_test
+
+        report = smoke_test()
+        print_smoke_report(report)
+        return 0 if report["ok"] else 1
+
+    if not args.file:
+        parser.error("a file is required unless --smoke is used")
 
     try:
         text = Path(args.file).read_text(encoding="utf-8")
