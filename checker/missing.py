@@ -37,16 +37,30 @@ def _sentences(text):
 
 
 def _clauses(text):
-    return [c.strip() for s in _sentences(text) for c in re.split(r",(?!\d)", s) if c.strip()]
+    return [c.strip() for s in _sentences(text) for c in re.split(r",(?!\d)|[/|·]", s) if c.strip()]
 
 
-def _has_value_after_label(clause, label, no_value_phrases):
-    if label not in clause or any(p in clause for p in no_value_phrases):
+def _known_labels(checklist, common):
+    """Every label word, longest first, so "세탁 방법" is removed whole before "세탁"."""
+    labels = set(common["section_labels"])
+    for item in checklist["items"].values():
+        labels.update(item.get("labels", []))
+        for part in item.get("parts", {}).values():
+            labels.update(part.get("aliases", []))
+    return sorted((_normalize(label) for label in labels), key=len, reverse=True)
+
+
+def _has_value_after_label(clause, label, words):
+    """A label needs a real value: not a no-value phrase, a particle or another label."""
+    if label not in clause or any(p in clause for p in words["no_value_phrases"]):
         return False
-    return bool(re.sub(r"[^\w]", "", clause.replace(label, "", 1)))
+    rest = clause
+    for known in words["labels"]:
+        rest = rest.replace(known, " ")
+    return any(token not in words["particles"] for token in re.findall(r"\w+", rest))
 
 
-def _qualitative_present(item, text, no_value_phrases):
+def _qualitative_present(item, text, words):
     # Values are matched per sentence so comma lists like "95, 100, 105" stay whole.
     # Labels are matched per clause so "소재: 추후 안내, 신축성 좋음" keeps the two apart.
     for sentence in _sentences(text):
@@ -58,7 +72,7 @@ def _qualitative_present(item, text, no_value_phrases):
         if any(re.search(p, searchable) for p in item["patterns"]):
             return True
     return any(
-        _has_value_after_label(clause, _normalize(label), no_value_phrases)
+        _has_value_after_label(clause, _normalize(label), words)
         for clause in _clauses(text)
         for label in item["labels"]
     )
@@ -131,34 +145,41 @@ def _context_parts_with_value(item, text):
 
 
 def _numeric_status(item, text):
-    """Returns (present, part keys without a value), both per the numeric-item rule."""
+    """Returns (present, part keys with a value), both per the numeric-item rule."""
     if item["match"] == "labeled":
         found = _labeled_parts_with_number(item, text)
         present = bool(found)
     else:
         found = _context_parts_with_value(item, text)
         present = any(item["parts"][k].get("counts_for_presence", True) for k in found)
-    return present, [k for k in item["parts"] if k not in found]
+    return present, found
 
 
 def check_missing(text, garment_type="top"):
     """Check one description. Vagueness is not judged here, only whether items are stated."""
     checklist, common = load_checklist(garment_type)
     normalized = _normalize(text)
-    no_value_phrases = [_normalize(p) for p in common["no_value_phrases"]]
+    words = {
+        "no_value_phrases": [_normalize(p) for p in common["no_value_phrases"]],
+        "particles": set(common["particles"]),
+        "labels": _known_labels(checklist, common),
+    }
 
     result = {"present": [], "missing": [], "gaps": {}, "questions": []}
     for key, item in checklist["items"].items():
         if item["kind"] == "numeric":
-            present, gap_parts = _numeric_status(item, normalized)
+            present, found = _numeric_status(item, normalized)
+            gap_parts = [k for k in item["parts"] if k not in found]
         else:
-            present, gap_parts = _qualitative_present(item, normalized, no_value_phrases), []
+            present, found, gap_parts = _qualitative_present(item, normalized, words), set(), []
 
         if not present:
             result["missing"].append(key)
+            # Do not ask again for a part the description already gives.
+            template = next((item["when_found"][k] for k in found if k in item.get("when_found", {})), item)
             result["questions"].append({
                 "item": key, "part": None, "label": item["label"],
-                "question": item["question"], "fix_example": item["fix_example"],
+                "question": template["question"], "fix_example": template["fix_example"],
             })
             continue
 

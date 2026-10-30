@@ -94,6 +94,18 @@ def test_size_worn_alone_is_missing():
     assert "model_info" not in result["gaps"]
 
 
+def test_known_size_worn_is_not_asked_again():
+    result = check_missing("모델 M 착용")
+    question = next(q for q in result["questions"] if q["item"] == "model_info")
+    assert "착용" not in question["question"] and "착용" not in question["fix_example"]
+    assert "키" in question["question"] and "몸무게" in question["question"]
+
+
+def test_missing_model_info_without_size_worn_asks_for_everything():
+    question = next(q for q in check_missing("")["questions"] if q["item"] == "model_info")
+    assert "착용" in question["question"]
+
+
 def test_height_and_size_worn_leave_weight_as_gap():
     assert check_missing("모델 168cm, M 착용")["gaps"]["model_info"] == ["weight"]
 
@@ -121,6 +133,34 @@ def test_measurement_is_not_model_height():
 @pytest.mark.parametrize("text", ["소재: 추후 안내", "소재:", "소재"])
 def test_label_with_no_value_is_missing(text):
     assert is_missing(text, "material")
+
+
+@pytest.mark.parametrize("text", ["소재는", "소재 는", "소재입니다", "소재 / 색상", "소재/색상", "소재 / 색상 / 세탁 방법", "소재 색상"])
+def test_label_with_only_a_particle_or_another_label_is_missing(text):
+    assert is_missing(text, "material")
+
+
+def test_both_labels_in_a_bare_list_are_missing():
+    result = check_missing("소재 / 색상")
+    assert {"material", "colors"} <= set(result["missing"])
+
+
+def test_own_longer_label_is_not_a_value():
+    assert is_missing("세탁 방법", "care")
+
+
+def test_value_belongs_to_the_label_next_to_it():
+    result = check_missing("소재 / 색상: 블랙")
+    assert "material" in result["missing"]
+    assert "colors" in result["present"]
+
+
+@pytest.mark.parametrize("text, item", [
+    ("소재는 면이에요", "material"), ("원단이 좋아요", "material"), ("소재/혼용률: 코튼 100%", "material"),
+    ("핏이 예뻐요", "fit"), ("세탁 방법: 손빨래", "care"), ("신축성은 없어요", "stretch"),
+])
+def test_label_with_a_real_value_is_still_present(text, item):
+    assert not is_missing(text, item)
 
 
 def test_no_value_phrase_stays_in_its_own_clause():
