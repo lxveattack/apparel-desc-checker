@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 from pathlib import Path
 
 import requests
@@ -26,6 +27,13 @@ CHECK_MISSING_TOOL = {
         },
     },
 }
+
+
+def mask_secrets(text, api_key):
+    """Hide the API key and the OpenRouter user id. Use this on anything printed or saved."""
+    text = text.replace(api_key, "[KEY]")
+    text = re.sub(r'("user_id"\s*:\s*)"[^"]*"', r'\1"[USER_ID]"', text)
+    return re.sub(r"\buser_[A-Za-z0-9]{8,}\b", "[USER_ID]", text)
 
 
 def load_settings():
@@ -66,11 +74,11 @@ def smoke_test():
             timeout=TIMEOUT_SECONDS,
         )
     except requests.RequestException as error:
-        report["message"] = f"Request failed: {type(error).__name__}: {str(error).replace(api_key, '[KEY]')}"
+        report["message"] = f"Request failed: {type(error).__name__}: {mask_secrets(str(error), api_key)}"
         return report
 
     report["http_status"] = response.status_code
-    report["raw_response"] = response.text.replace(api_key, "[KEY]")
+    report["raw_response"] = mask_secrets(response.text, api_key)
     try:
         body = response.json()
         choice = body["choices"][0]
