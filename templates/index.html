@@ -30,6 +30,22 @@
     <button type="submit" name="action" value="rules">점검하기</button>
     <button type="submit" name="action" value="model">모델 분석 포함 점검 (요청 최대 3회)</button>
   </form>
+  <p id="busy" class="notice" role="status" hidden>분석 중입니다. 모델 분석은 1분 이상 걸릴 수 있습니다.</p>
+  <script>
+    const form = document.querySelector("form");
+    const buttons = form.querySelectorAll("button");
+    const busy = document.getElementById("busy");
+    form.addEventListener("submit", () => {
+      busy.hidden = false;
+      // Wait until the form data is built: a disabled button would drop its action value.
+      setTimeout(() => buttons.forEach((button) => { button.disabled = true; }));
+    });
+    // The browser's back button can restore this page in its disabled state.
+    window.addEventListener("pageshow", () => {
+      busy.hidden = true;
+      buttons.forEach((button) => { button.disabled = false; });
+    });
+  </script>
 
   {% if result %}
     {% if is_empty %}

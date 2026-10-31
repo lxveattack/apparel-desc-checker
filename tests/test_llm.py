@@ -342,6 +342,16 @@ def test_page_escapes_model_text(run, monkeypatch):
     assert "<script>alert" not in page
 
 
+def test_page_has_the_busy_message_hidden_until_submit():
+    page = app.test_client().get("/").get_data(as_text=True)
+    assert '<p id="busy" class="notice" role="status" hidden>분석 중입니다. 모델 분석은 1분 이상 걸릴 수 있습니다.</p>' in page
+
+
+def test_buttons_are_disabled_only_after_the_form_data_is_built():
+    page = app.test_client().get("/").get_data(as_text=True)
+    assert "setTimeout(() => buttons.forEach((button) => { button.disabled = true; }))" in page
+
+
 def test_rule_only_button_sends_no_request(run, monkeypatch):
     fake = FakeModel()
     status, page = post_page(monkeypatch, fake, "rules")
