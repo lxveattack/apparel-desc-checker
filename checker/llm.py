@@ -20,7 +20,7 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 # Counts every model request in one analysis, including retries.
 MAX_REQUESTS = 3
 # Reasoning tokens count toward this limit, so it is well above the size of the report itself.
-MAX_TOKENS = 6000
+MAX_TOKENS = 12000
 TIMEOUT_SECONDS = 120
 
 NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
