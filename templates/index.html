@@ -14,6 +14,9 @@
     th, td { padding: 8px; border: 1px solid #d0d7de; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
     th { background: #f6f8fa; }
     .notice { padding: 8px; background: #fff8c5; }
+    .found { background: #ddf4ff; }
+    .fill { background: #fff8c5; }
+    .mark { display: block; margin-top: 4px; font-weight: 600; color: #cf222e; }
     .status { font-family: monospace; font-weight: 600; }
     footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid #d0d7de; font-size: 0.9rem; color: #57606a; }
   </style>
@@ -82,6 +85,37 @@
       <p><span class="status">{{ analysis.status }}</span> {{ analysis.message }}</p>
       {% if analysis.status != "not_run" %}
         <p>사용한 요청: {{ analysis.requests_used }}/{{ analysis.max_requests }}</p>
+      {% endif %}
+      {% if analysis.status == "ok" %}
+        {% if analysis["items"] %}
+          <table>
+            <thead>
+              <tr><th class="found" colspan="2">본문에서 찾은 표현</th><th class="fill" colspan="2">판매자가 채울 내용</th></tr>
+              <tr><th>인용</th><th>유형</th><th>질문</th><th>수정 예시</th></tr>
+            </thead>
+            <tbody>
+              {% for item in analysis["items"] %}
+                <tr>
+                  <td class="found">{{ item.quote }}</td>
+                  <td class="found">{{ item.type }}</td>
+                  <td class="fill">{{ item.question }}</td>
+                  <td class="fill">
+                    {{ item.fix_example }}
+                    {% if item.new_numbers %}<span class="mark">본문에 없는 숫자: {{ item.new_numbers | join(", ") }}</span>{% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p>찾은 표현 없음</p>
+        {% endif %}
+        {% if analysis.rejected_items %}
+          <h3>제외한 인용 (본문에 없음)</h3>
+          <ul>
+            {% for item in analysis.rejected_items %}<li>{{ item.quote }}</li>{% endfor %}
+          </ul>
+        {% endif %}
       {% endif %}
       {% if analysis.trace %}
         <details>

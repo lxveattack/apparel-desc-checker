@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import re
+import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -21,6 +22,8 @@ MAX_REQUESTS = 3
 # Reasoning tokens count toward this limit, so it is well above the size of the report itself.
 MAX_TOKENS = 6000
 TIMEOUT_SECONDS = 120
+
+NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
 
 VAGUE_TYPES = ["no_number", "no_reference", "subjective", "hedged_range", "incomplete_spec", "unclear_method"]
 
@@ -87,7 +90,14 @@ Vague expression types (choose exactly one best type):
 - unclear_method: a measurement with a number but no method
 
 Rules:
-- quote must be copied exactly from the description.
+- quote must be copied exactly from the description. Quote the shortest phrase that shows the problem, not a whole sentence.
+- Flag wording with no standard or number behind it, such as "어깨 넉넉함" or "기장 적당해요".
+- A one-size label with no stated range is incomplete_spec. So is a material with no fiber name or no blend ratio.
+- A measurement that does not say its method, such as a chest number without 단면 or 둘레, is unclear_method. Quote the label and number.
+- A superlative or claim with no fact behind it is subjective. So is a promise that it fits everyone.
+- Do not flag a clear standard value, such as 정핏, 보통, 약간 있음 or 없음, or a note about measurement tolerance.
+- Do not flag a relative fit description when the same description gives measurements and model numbers.
+- Do not flag an item only because it is missing. check_missing already covers that.
 - Never invent a value that is not in the description. Write unknown values as [확인 필요].
 - fix_example fixes one problem only. It is not a rewritten description.
 - Write question and fix_example in Korean.
@@ -137,6 +147,24 @@ def validate_report(arguments):
     return arguments["items"], None
 
 
+def _collapse(text):
+    return re.sub(r"\s+", " ", unicodedata.normalize("NFC", text)).strip()
+
+
+def apply_guards(items, text):
+    """Drop quotes that are not in the text, and mark fix examples that add a number."""
+    source = _collapse(text)
+    source_numbers = set(NUMBER_RE.findall(source))
+    kept, rejected = [], []
+    for item in items:
+        if _collapse(item["quote"]) not in source:
+            rejected.append(item)
+            continue
+        new_numbers = [n for n in NUMBER_RE.findall(_collapse(item["fix_example"])) if n not in source_numbers]
+        kept.append({**item, "new_numbers": new_numbers})
+    return kept, rejected
+
+
 def _parse_arguments(raw):
     """Tool arguments arrive as a JSON string. Returns (value, error)."""
     if isinstance(raw, dict):
@@ -165,7 +193,7 @@ def _new_analysis(status, message, model=None):
     return {
         "status": status, "message": message, "model": model, "served_model": None,
         "requests_used": 0, "max_requests": MAX_REQUESTS, "max_tokens": MAX_TOKENS,
-        "check_missing_called": False, "items": None, "trace": [], "exchanges": [], "run_file": None,
+        "check_missing_called": False, "items": None, "rejected_items": [], "trace": [], "exchanges": [], "run_file": None,
     }
 
 
@@ -288,8 +316,10 @@ def _run_loop(text, garment_type, rule_result, api_key, model):
         items, retry_reason = _handle_tool_calls(tool_calls, rule_result, analysis, step, messages)
         if items is not None:
             analysis["status"] = "ok"
-            analysis["items"] = items
-            analysis["message"] = f"Report accepted with {len(items)} item(s)."
+            analysis["items"], analysis["rejected_items"] = apply_guards(items, text)
+            analysis["message"] = f"Report accepted with {len(analysis['items'])} item(s)."
+            if analysis["rejected_items"]:
+                analysis["message"] += f" Rejected {len(analysis['rejected_items'])} quote(s) not found in the text."
             if not analysis["check_missing_called"]:
                 analysis["message"] += " The model skipped check_missing."
             return analysis
@@ -352,6 +382,16 @@ def print_analysis(analysis):
         for call in step["tool_calls"]:
             print(f"    Tool call: {call['name']} {json.dumps(call['arguments'], ensure_ascii=False)}")
             print(f"    Result: {call['result']}")
+    if analysis["items"]:
+        print("Vague expressions:")
+        for item in analysis["items"]:
+            print(f"  \"{item['quote']}\" [{item['type']}]")
+            print(f"    질문: {item['question']}")
+            print(f"    수정 예시: {item['fix_example']}")
+            if item["new_numbers"]:
+                print(f"    본문에 없는 숫자: {', '.join(item['new_numbers'])}")
+    for item in analysis["rejected_items"]:
+        print(f"Rejected, not in the text: \"{item['quote']}\"")
     if analysis["run_file"]:
         print(f"Saved run: {analysis['run_file']}")
 

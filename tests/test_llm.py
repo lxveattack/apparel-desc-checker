@@ -83,7 +83,7 @@ def test_normal_flow_uses_two_requests_and_stops_after_a_valid_report(run):
     result = run(reply(CHECK), reply(REPORT))
     assert result["status"] == "ok"
     assert result["requests_used"] == 2
-    assert result["items"] == [GOOD_ITEM]
+    assert result["items"] == [{**GOOD_ITEM, "new_numbers": []}]
     assert [c["name"] for s in result["trace"] for c in s["tool_calls"]] == ["check_missing", "report_vague_expressions"]
 
 
@@ -201,6 +201,48 @@ def test_network_failure_fails_without_retry(run, error):
     assert result["status"] == "failed" and len(result["fake"].calls) == 1
 
 
+# Guards
+
+def report_of(*items):
+    return reply(("report_vague_expressions", json.dumps({"items": list(items)}, ensure_ascii=False)))
+
+
+def test_quote_not_in_the_text_is_rejected_and_not_a_result(run):
+    result = run(report_of(GOOD_ITEM, {**GOOD_ITEM, "quote": "최고급 실크"}))
+    assert [i["quote"] for i in result["items"]] == ["코튼"]
+    assert [i["quote"] for i in result["rejected_items"]] == ["최고급 실크"]
+    assert "Rejected 1 quote" in result["message"]
+
+
+def test_guard_accepts_a_quote_with_different_line_breaks(run):
+    result = run(report_of({**GOOD_ITEM, "quote": "입니다. 총장"}), text="코튼 티셔츠입니다.\r\n총장 68cm")
+    assert len(result["items"]) == 1 and result["rejected_items"] == []
+
+
+def test_guard_does_not_accept_a_partial_word_change(run):
+    result = run(report_of({**GOOD_ITEM, "quote": "코튼 90%"}))
+    assert result["items"] == [] and len(result["rejected_items"]) == 1
+
+
+@pytest.mark.parametrize("fix, marked", [
+    ("코튼 [확인 필요]%", []),
+    ("코튼 100%, 총장 68cm", []),
+    ("코튼 95%", ["95"]),
+    ("코튼 100%, 어깨 45.5cm", ["45.5"]),
+    ("총장 6cm", ["6"]),
+])
+def test_new_number_in_a_fix_example_is_marked(run, fix, marked):
+    result = run(report_of({**GOOD_ITEM, "fix_example": fix}))
+    assert result["items"][0]["new_numbers"] == marked
+
+
+def test_guard_results_are_saved(run):
+    result = run(report_of({**GOOD_ITEM, "fix_example": "코튼 95%"}, {**GOOD_ITEM, "quote": "없는 말"}))
+    record = json.loads(saved_run(result))
+    assert record["items"][0]["new_numbers"] == ["95"]
+    assert record["rejected_items"][0]["quote"] == "없는 말"
+
+
 # Not run
 
 def test_empty_input_sends_no_request(run):
@@ -277,6 +319,27 @@ def test_page_shows_the_trace_when_the_model_succeeds(run, monkeypatch):
     assert '<span class="status">ok</span>' in page
     assert "check_missing" in page and "report_vague_expressions" in page
     assert "see_through" in page
+
+
+def test_page_shows_the_vague_table_with_found_and_fill_kept_apart(run, monkeypatch):
+    item = {"quote": "코튼", "type": "incomplete_spec", "question": "혼용률은요?", "fix_example": "코튼 95%"}
+    _, page = post_page(monkeypatch, FakeModel(report_of(item, {**item, "quote": "지어낸 말"})), "model")
+    assert "본문에서 찾은 표현" in page and "판매자가 채울 내용" in page
+    assert '<td class="found">코튼</td>' in page and '<td class="found">incomplete_spec</td>' in page
+    assert "혼용률은요?" in page and "코튼 95%" in page
+    assert "본문에 없는 숫자: 95" in page
+    assert "제외한 인용" in page and "<li>지어낸 말</li>" in page
+
+
+def test_page_with_an_empty_report_says_so(run, monkeypatch):
+    _, page = post_page(monkeypatch, FakeModel(report_of()), "model")
+    assert "찾은 표현 없음" in page
+
+
+def test_page_escapes_model_text(run, monkeypatch):
+    item = {**GOOD_ITEM, "question": "<script>alert(1)</script>"}
+    _, page = post_page(monkeypatch, FakeModel(report_of(item)), "model")
+    assert "<script>alert" not in page
 
 
 def test_rule_only_button_sends_no_request(run, monkeypatch):
