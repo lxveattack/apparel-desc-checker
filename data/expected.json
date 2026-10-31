@@ -1,0 +1,42 @@
+{
+  "top_01": {
+    "garment_type": "top",
+    "nearly_complete": false,
+    "missing": ["measurements", "model_info", "colors", "thickness", "stretch", "see_through", "care", "origin"],
+    "gaps": {},
+    "vague_quotes": ["프리사이즈", "누구나 편하게", "여유 있는 핏", "최고급 원단"],
+    "limitation_note": "소재는 언급되어 있으나 구체적인 섬유 종류와 혼용률은 없다. 프리사이즈는 판매 사이즈로 인정하지만 적용 범위가 없고, 누구나 편하게 입을 수 있다는 주장은 실측이나 착용 기준으로 뒷받침되지 않는다."
+  },
+  "top_02": {
+    "garment_type": "top",
+    "nearly_complete": false,
+    "missing": ["thickness", "stretch", "see_through", "fit", "origin"],
+    "gaps": {"measurements": ["shoulder", "sleeve"], "model_info": ["weight"]},
+    "vague_quotes": [],
+    "limitation_note": "실측은 M 사이즈 기준임이 명시되어 있다. 이번 항목 단위 검사에서는 S와 L의 실측 누락까지 평가하지 않는다. 반팔과 라운드는 핏 정보로 보지 않는다."
+  },
+  "top_03": {
+    "garment_type": "top",
+    "nearly_complete": false,
+    "missing": ["care", "origin"],
+    "gaps": {},
+    "vague_quotes": ["가슴 60", "가슴 62", "밝은 색상은 약간 비침이 있을 수 있어요"],
+    "limitation_note": "공통 단위 cm는 같은 실측 블록에 적용한다. 가슴 치수는 단면인지 둘레인지 불명확하다. 비침 설명은 대상 색상과 확인 조건이 불명확하다. 넉넉한 핏은 실측과 모델 정보가 함께 있어 이번 정답표에서는 지적하지 않는다."
+  },
+  "top_04": {
+    "garment_type": "top",
+    "nearly_complete": true,
+    "missing": [],
+    "gaps": {},
+    "vague_quotes": [],
+    "limitation_note": "정상 사례로 과다 지적을 확인한다. 공통 단위, 사이즈별 실측, 가슴단면, 모델 정보가 명시되어 있다. 1~2cm 측정 오차 안내와 정핏·보통·약간 있음 같은 통상적인 설명은 이번 기준에서 애매한 표현으로 지적하지 않는다."
+  },
+  "top_05": {
+    "garment_type": "top",
+    "nearly_complete": false,
+    "missing": ["measurements", "model_info", "thickness", "stretch", "see_through", "origin"],
+    "gaps": {},
+    "vague_quotes": ["FREE"],
+    "limitation_note": "실측은 이미지에 있다고 안내하지만 텍스트 검사로 확인할 수 없어 missing으로 처리한다. 이는 실제 상품 페이지에 실측이 없다는 뜻은 아니다. 판매 사이즈 FREE는 적용 범위가 없어 지적한다. 모델 착용 사이즈 FREE는 이미 제공되었으므로 키와 몸무게만 질문해야 한다."
+  }
+}
