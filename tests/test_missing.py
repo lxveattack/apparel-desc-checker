@@ -210,6 +210,20 @@ def test_available_sizes_next_to_size_worn_still_count():
     assert not is_missing("사이즈 S/M/L 모델 M 착용", "sizes")
 
 
+@pytest.mark.parametrize("text", [
+    "모델 착용 사이즈: FREE", "착용 사이즈: M", "착용 사이즈는 M입니다", "모델 사이즈: M", "모델 키 168cm 착용 사이즈 M",
+])
+def test_size_worn_named_with_the_word_size_is_not_an_available_size(text):
+    assert is_missing(text, "sizes")
+
+
+@pytest.mark.parametrize("text", [
+    "사이즈: FREE", "사이즈 S/M/L 모델 M 착용", "사이즈: FREE\n모델 착용 사이즈: FREE", "사이즈: S/M/L 착용 사이즈: M",
+])
+def test_available_sizes_still_count(text):
+    assert not is_missing(text, "sizes")
+
+
 def test_size_chart_in_image_is_missing():
     assert is_missing("사이즈표는 상세 이미지 참고", "sizes")
 
