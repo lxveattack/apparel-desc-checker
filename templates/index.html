@@ -24,7 +24,8 @@
   <form method="post">
     <label for="description">상품 설명</label>
     <textarea id="description" name="description">{{ text }}</textarea>
-    <button type="submit">점검하기</button>
+    <button type="submit" name="action" value="rules">점검하기</button>
+    <button type="submit" name="action" value="model">모델 분석 포함 점검 (요청 최대 3회)</button>
   </form>
 
   {% if result %}
@@ -77,7 +78,37 @@
     {% endif %}
 
     <h2>애매한 표현 분석</h2>
-    <p><span class="status">not_run</span> (아직 실행하지 않습니다)</p>
+    {% if analysis %}
+      <p><span class="status">{{ analysis.status }}</span> {{ analysis.message }}</p>
+      {% if analysis.status != "not_run" %}
+        <p>사용한 요청: {{ analysis.requests_used }}/{{ analysis.max_requests }}</p>
+      {% endif %}
+      {% if analysis.trace %}
+        <details>
+          <summary>도구 호출 기록</summary>
+          <table>
+            <thead><tr><th>요청</th><th>finish_reason</th><th>토큰</th><th>도구 호출과 결과</th></tr></thead>
+            <tbody>
+              {% for step in analysis.trace %}
+                <tr>
+                  <td>{{ step.request }}</td>
+                  <td>{{ step.finish_reason or "-" }}</td>
+                  <td>{{ step.usage.completion_tokens or "-" }} (추론 {{ step.usage.reasoning_tokens or "-" }})</td>
+                  <td>
+                    {% if step.note %}<div>{{ step.note }}</div>{% endif %}
+                    {% for call in step.tool_calls %}
+                      <div><code>{{ call.name }}</code> {{ call.arguments | tojson }} → {{ call.result }}</div>
+                    {% endfor %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </details>
+      {% endif %}
+    {% else %}
+      <p><span class="status">not_run</span> (규칙 기반 점검만 실행했습니다)</p>
+    {% endif %}
   {% endif %}
 
   <footer>참고용 점검이며 법적 적합성을 보장하지 않습니다</footer>

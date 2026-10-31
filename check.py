@@ -29,6 +29,7 @@ def main():
     parser.add_argument("file", nargs="?", help="UTF-8 text file with one description")
     parser.add_argument("--garment", default="top", help="garment type in data/checklists.json (default: top)")
     parser.add_argument("--smoke", action="store_true", help="send one tool-call test request to OpenRouter")
+    parser.add_argument("--llm", action="store_true", help="also run the model (at most 3 requests)")
     args = parser.parse_args()
 
     if args.smoke:
@@ -57,7 +58,15 @@ def main():
         return 1
 
     print_report(result)
-    return 0
+    if not args.llm:
+        return 0
+
+    from checker.llm import analyze, print_analysis
+
+    print("\n모델 분석:")
+    analysis = analyze(text, args.garment, result, Path(args.file).stem)
+    print_analysis(analysis)
+    return 0 if analysis["status"] == "ok" else 1
 
 
 if __name__ == "__main__":
